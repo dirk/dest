@@ -6,9 +6,9 @@ Thing is, though, Obj-C and Clang *don't actually need Xcode*. Destination (shor
 
 ### Getting started
 
-```
+```bash
 # Clone the repo
-...
+git clone https://github.com/dirk/dest.git
 # Go into the test project directory
 cd test/project
 # Invoke destination
