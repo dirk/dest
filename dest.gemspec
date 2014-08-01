@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.version       = Dest::VERSION
   spec.authors       = ["Dirk Gadsden"]
   spec.email         = ["dirk@dirk.to"]
-  spec.summary       = ""
-  spec.description   = ""
+  spec.summary       = "Free your code from Xcode"
+  spec.description   = "Tool for building Objective-C code without the use of Xcode"
   spec.homepage      = "https://github.com/dirk/dest"
   spec.license       = "MIT"
 
@@ -18,10 +18,9 @@ Gem::Specification.new do |spec|
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.require_paths = ["lib"]
 
-  # spec.add_dependency "ffi", "~> 1.9.3"
+  spec.add_dependency "rake", '~> 3.0', '>= 3.0.0'
 
   spec.add_development_dependency "bundler", "~> 1.5"
-  spec.add_development_dependency "rake"
-  spec.add_development_dependency "rspec"
-  spec.add_development_dependency "rspec-expectations"
+  spec.add_development_dependency "rspec", '~> 3.0', '>= 3.0.0'
+  spec.add_development_dependency "rspec-expectations", '~> 3.0', '>= 3.0.0'
 end
