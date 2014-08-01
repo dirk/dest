@@ -6,18 +6,23 @@ module Dest
     end
 
     class Base
-      attr_reader   :dir
-      attr_accessor :frameworks, :sources, :target
+      attr_accessor :dir, :frameworks, :sources, :target
       def initialize dir
         @dir = dir
         @frameworks = ['Foundation']
-        @sources = scan_sources
-        @target = guess_target
+        @sources = []
+        @target  = guess_target
       end
-      def scan_sources
-        src  = Dir[File.join(@dir, 'src', '*.m')]
-        root = Dir[File.join(@dir, '*.m')]
-        return src + root
+      # def scan_sources
+      #   src  = Dir[File.join(@dir, 'src', '**/*.m')]
+      #   root = Dir[File.join(@dir, '*.m')]
+      #   return src + root
+      # end
+      def add_source fn
+        @sources << File.expand_path(fn)
+      end
+      def add_source_directory dir
+        Dir[File.join dir, '**/*.m'].map {|fn| File.expand_path fn }.each {|fn| @sources << fn }
       end
       def guess_target
         # Turns '/a/b/c' into just 'c'

@@ -29,7 +29,11 @@ module Dest
     end
 
     def compile source, object
-      sh "clang #{source} #{flags} -o #{object}"
+      # Ensure we have the directory
+      dir = File.dirname object
+      FileUtils.mkdir_p dir
+      # Then build
+      system "clang #{source} #{flags} -o #{object}"
     end
 
     # Set up rake hooks
@@ -41,9 +45,11 @@ module Dest
         Dir.mkdir @build_dir
       end
 
+      task 'default' => 'build'
+
       desc 'Build the project'
       task 'build' => project.target do
-        puts "Built #{File.basename project.target}"
+        puts "Built #{File.basename project.target}".green
       end
 
       # Build the sources into their objects via the rule below
@@ -52,11 +58,19 @@ module Dest
         target  = t.name
         objects = t.prerequisites
         # Little message
-        puts "Linking #{File.basename target} from #{objects.length.to_s} objects"
-        # Then figure out our frameworks and objects
-        objects = objects.join ' '
-        frameworks = project.frameworks.map {|f| "-framework #{f}" }.join ' '
-        sh "clang #{objects} -lobjc #{frameworks} -o #{target}"
+        time_action "Linking #{File.basename target} from #{objects.length.to_s} objects" do
+          # Then figure out our frameworks and objects
+          objects = objects.join ' '
+          frameworks = project.frameworks.map {|f| "-framework #{f}" }.join ' '
+          system "clang #{objects} -lobjc #{frameworks} -o #{target}"
+        end
+      end
+
+      def time_action name
+        start = Time.now
+        yield
+        diff = ((Time.now - start) * 1000).round
+        puts name + " (#{diff.to_s} ms)".light_black
       end
 
       # Set up a file task for every source file to catch changes
@@ -66,13 +80,24 @@ module Dest
         object_file = objectsify src
 
         file object_file => source_file do |t|
-          basename = File.basename src
-          puts "Compiling #{basename}"
+          # Try to strip off the leading directory
+          fn = src.sub project.dir+'/', ''
+          time_action "Compiling #{fn}" do
+            compile source_file, object_file
+          end
+        end
+      end#project.sources.each
 
-          compile source_file, object_file
+      desc 'Clean up build artifacts and target'
+      task 'clean' do
+        system "rm -f #{project.target}"
+        project.sources.each do |fn|
+          fn = objectsify fn
+          system "rm -f #{fn}"
         end
       end
 
-    end#self.setup
+    end#setup
+
   end#Rake
 end#Dest

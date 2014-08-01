@@ -6,5 +6,7 @@ require 'dest/rake'
 
 Dest::Project::Base.setup do |proj|
   proj.frameworks << 'Cocoa'
+  proj.add_source 'main.m'
+  proj.add_source_directory 'Example'
 end
 Dest::Rake.setup
