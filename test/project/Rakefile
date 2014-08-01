@@ -1,0 +1,10 @@
+# Adjust our load path for testing
+lib = File.expand_path('../../../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+require 'dest/rake'
+
+Dest::Project::Base.setup do |proj|
+  proj.frameworks << 'Cocoa'
+end
+Dest::Rake.setup
