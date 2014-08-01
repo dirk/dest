@@ -25,6 +25,9 @@ module Dest
       flags << '-Wall' # All warnings
       flags << '-emit-llvm'
       flags << '-fobjc-arc'
+      if project.compile_flags
+        flags << project.compile_flags
+      end
       @flags = flags.join ' '
     end
 
@@ -33,13 +36,18 @@ module Dest
       dir = File.dirname object
       FileUtils.mkdir_p dir
       # Then build
-      system "clang #{source} #{flags} -o #{object}"
+      sh "clang #{source} #{flags} -o #{object}"
+    end
+
+    def time_action name
+      start = Time.now
+      yield
+      diff = ((Time.now - start) * 1000).round
+      puts name + " (#{diff.to_s} ms)".light_black
     end
 
     # Set up rake hooks
     def setup
-      # puts project.sources.inspect
-      # puts project.target
       @build_dir = File.join project.dir, 'build'
       unless Dir.exists? @build_dir
         Dir.mkdir @build_dir
@@ -52,52 +60,94 @@ module Dest
         puts "Built #{File.basename project.target}".green
       end
 
-      # Build the sources into their objects via the rule below
-      file project.target => project.sources.map {|fn| objectsify fn } do |t|
-        # Then build the target file from the sources
-        target  = t.name
-        objects = t.prerequisites
-        # Little message
-        time_action "Linking #{File.basename target} from #{objects.length.to_s} objects" do
-          # Then figure out our frameworks and objects
-          objects = objects.join ' '
-          frameworks = project.frameworks.map {|f| "-framework #{f}" }.join ' '
-          system "clang #{objects} -lobjc #{frameworks} -o #{target}"
+      self.setup_target
+      self.setup_source_files
+
+      if project.test_target
+        self.setup_test_target
+        self.setup_test_files
+      end
+
+      desc 'Clean up build artifacts and target'
+      task 'clean' do
+        sh "rm -f #{project.target}"
+        project.sources.each do |fn|
+          fn = objectsify fn
+          sh "rm -f #{fn}"
         end
       end
-
-      def time_action name
-        start = Time.now
-        yield
-        diff = ((Time.now - start) * 1000).round
-        puts name + " (#{diff.to_s} ms)".light_black
+      
+      namespace 'test' do
+        desc 'Build the test target'
+        task 'build' => project.test_target do
+          puts "Built #{File.basename project.test_target}".green
+        end
+        desc 'Clean test build artifacts'
+        task 'clean' do
+          sh "rm -f #{project.test_target}"
+          project.test_sources.each do |fn|
+            fn = objectsify fn
+            sh "rm -f #{fn}"
+          end
+        end
       end
+      
+    end#setup
 
-      # Set up a file task for every source file to catch changes
+    # Build the target file from the sources
+    def setup_target
+      link_target_task project.target, (project.sources + [project.main]).map {|fn| objectsify fn }
+    end
+
+    # Set up a file task for every source file
+    def setup_source_files
       project.sources.each do |src|
         # Figure out where stuff should come from and go to
         source_file = src
         object_file = objectsify src
-
-        file object_file => source_file do |t|
-          # Try to strip off the leading directory
-          fn = src.sub project.dir+'/', ''
-          time_action "Compiling #{fn}" do
-            compile source_file, object_file
-          end
-        end
+        compile_task object_file, source_file
       end#project.sources.each
+    end#setup_source_files
+    
+    # Set up test source files and test target tasks
+    def setup_test_files
+      project.test_sources.each do |src|
+        compile_task objectsify(src), src
+      end
+    end
+    def setup_test_target
+      link_target_task project.test_target,
+                       (project.sources + project.test_sources).map {|fn| objectsify fn },
+                       :frameworks => project.test_frameworks
+    end
 
-      desc 'Clean up build artifacts and target'
-      task 'clean' do
-        system "rm -f #{project.target}"
-        project.sources.each do |fn|
-          fn = objectsify fn
-          system "rm -f #{fn}"
+    private
+    def compile_task object, source
+      file object => source do |t|
+        # Try to strip off the leading directory
+        fn = source.sub project.dir+'/', ''
+        time_action "Compiling #{fn}" do
+          compile source, object
         end
       end
-
-    end#setup
+    end
+    def link_target_task target, objects, opts = {}
+      file target => objects do |t|
+        # Little message
+        time_action "Linking #{File.basename target} from #{objects.length.to_s} objects" do
+          # Then figure out our frameworks and objects
+          objects = objects.join ' '
+          frameworks = project.frameworks
+          if opts[:frameworks]
+            opts[:frameworks].each {|f| frameworks << f }
+          end
+          # Concatenate all the frameworks together
+          frameworks = frameworks.map {|f| "-framework #{f}" }.join ' '
+          flags = project.link_flags || ''
+          sh "clang #{objects} -lobjc #{frameworks} #{flags} -o #{target}"
+        end
+      end
+    end#link_target_task
 
   end#Rake
 end#Dest
